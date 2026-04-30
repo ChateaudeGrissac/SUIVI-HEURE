@@ -1663,7 +1663,8 @@ function renderTimesheet(data, key) {
     const d = new Date(row.date + 'T12:00:00');
     const dow = d.getDay(); // 0=sun
     const isWE = dow === 0 || dow === 6;
-    const absentCodes = CODES.filter(c=>['absent','jf'].includes(c.type)).map(c=>c.val);
+    // JF : les jours fériés ne sont PAS grisés - ils comptent comme travaillés légalement
+    const absentCodes = CODES.filter(c=>c.type==='absent').map(c=>c.val);
     const isGrayed = absentCodes.includes(row.code);
     const isJF = row.code === 'JF';
     const isRH = row.code === 'RH' || row.code === 'RC';
@@ -1793,7 +1794,7 @@ function renderTimesheet(data, key) {
       const d1 = parseTime(r.debut1); const f1 = parseTime(r.fin1);
       const p1m = parseFloat(r.pause1Mins||0);
       const t1 = d1.h !== '' && f1.h !== '' ? Math.max(0, timeToDecimal(f1.h,f1.m) - timeToDecimal(d1.h,d1.m) - p1m/60) : 0;
-      const isGrR = CODES.filter(c=>['absent','jf'].includes(c.type)).map(c=>c.val).includes(r.code);
+      const isGrR = CODES.filter(c=>c.type==='absent').map(c=>c.val).includes(r.code);
       if (r.code === 'JF') kW += r.theoretical || 0;
       else if (!isGrR) kW += Math.max(0, t1);
       kT += r.theoretical || 0;
@@ -1837,12 +1838,12 @@ function updateSummary(id, val, type) {
 
 function isCanEdit() {
   if (!currentEmployee) return false;
-  const timesheets = load('timesheets', {});
   const key = getMonthKey();
   const validation = load('validation_' + key, {});
-  // Employee can edit if not yet manager-validated
-  // Manager/RH can always edit
-  return !validation.managerValidated;
+  // Admin/manager peuvent toujours modifier
+  if (['admin','mgr'].includes(currentLoginType)) return !validation.managerValidated;
+  // Employé·e bloqué·e dès qu'il/elle a validé
+  return !validation.employeeValidated;
 }
 
 function isManagerOrRH() {
@@ -1870,7 +1871,7 @@ function updateRow(rowIdx, field, value) {
   else if (field === 'pause2Mins') currentData[rowIdx].pause2Mins = value;
   else if (field === 'code') {
     currentData[rowIdx].code = value;
-    const zeroTheo = CODES.filter(c=>c.type==='absent').map(c=>c.val).includes(value);
+    const zeroTheo = CODES.filter(c=>c.type==='absent').map(c=>c.val).includes(value) && value !== 'JF';
     if (zeroTheo) currentData[rowIdx].theoretical = 0;
     if (['PRE','TT','JF'].includes(value)) {
       const d = new Date(currentData[rowIdx].date + 'T12:00:00');
@@ -3169,37 +3170,68 @@ function exportTimesheetExcel() {
   if (!currentData || !currentEmployee) { showToast('Aucune donnée à exporter.', 'error'); return; }
   const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const JOURS_L = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-  const ABSENT_CODES = buildCODES().filter(c=>['absent','jf'].includes(c.type)).map(c=>c.val);
+  const ABSENT_CODES = buildCODES().filter(c=>c.type==='absent').map(c=>c.val);
   const name = currentEmployee.firstName + ' ' + currentEmployee.lastName;
-  const title = `Feuille des heures – ${name} – ${MONTHS[currentMonth]} ${currentYear}`;
-  const headers = ['Date','Jour','Motif','Debut 1','Pause 1','Fin 1','Debut 2','Pause 2','Fin 2','H. Reelles','H. Theorique','Ecart','Observations'];
+  const title = 'Feuille des heures – ' + name + ' – ' + MONTHS[currentMonth] + ' ' + currentYear;
   const sep = ';';
+
+  // Calcul du report du mois précédent
+  let prevMonth = currentMonth - 1;
+  let prevYear = currentYear;
+  if (prevMonth < 0) { prevMonth = 11; prevYear--; }
+  const prevKey = currentEmployee.id + '_' + prevYear + '_' + String(prevMonth+1).padStart(2,'0');
+  const prevTimesheets = load('timesheets', {});
+  const prevData = prevTimesheets[prevKey] || [];
+  let prevWorked = 0, prevTheo = 0;
+  prevData.forEach(r => {
+    const isAbsent = ABSENT_CODES.includes(r.code);
+    const isJF = r.code === 'JF';
+    if (isJF) { prevWorked += r.theoretical||0; prevTheo += r.theoretical||0; return; }
+    if (!isAbsent) {
+      const d1=parseTime(r.debut1), f1=parseTime(r.fin1);
+      let w1 = d1.h&&f1.h ? timeToDecimal(f1.h,f1.m)-timeToDecimal(d1.h,d1.m) : 0;
+      if(w1<0)w1+=24;
+      prevWorked += Math.max(0, w1 - parseFloat(r.pause1Mins||0)/60);
+      const d2=parseTime(r.debut2), f2=parseTime(r.fin2);
+      let w2 = d2.h&&f2.h ? timeToDecimal(f2.h,f2.m)-timeToDecimal(d2.h,d2.m) : 0;
+      if(w2<0)w2+=24;
+      prevWorked += Math.max(0, w2 - parseFloat(r.pause2Mins||0)/60);
+      prevTheo += parseFloat(r.theoretical||0);
+    }
+  });
+  const carryover = prevWorked - prevTheo;
+  const carryoverStr = (carryover>=0?'+':'')+decimalToHHMM(Math.abs(carryover));
+
+  const headers = ['Date','Jour','Motif','Debut 1','Pause 1','Fin 1','Debut 2','Pause 2','Fin 2','H. Reelles','H. Theorique','Ecart','Observations'];
 
   const rows = currentData.map(row => {
     const d = new Date(row.date + 'T12:00:00');
-    const isGrayed = ABSENT_CODES.includes(row.code);
+    const isAbsent = ABSENT_CODES.includes(row.code);
     const isJF = row.code === 'JF';
     let worked = 0;
     if (isJF) {
       worked = row.theoretical || 0;
-    } else if (!isGrayed) {
-      const d1 = parseTime(row.debut1), f1 = parseTime(row.fin1);
+    } else if (!isAbsent) {
+      const d1=parseTime(row.debut1), f1=parseTime(row.fin1);
       let r1 = d1.h&&f1.h ? timeToDecimal(f1.h,f1.m)-timeToDecimal(d1.h,d1.m) : 0;
-      if (r1<0) r1+=24;
+      if(r1<0)r1+=24;
       worked += Math.max(0, r1 - parseFloat(row.pause1Mins||0)/60);
-      const d2 = parseTime(row.debut2), f2 = parseTime(row.fin2);
+      const d2=parseTime(row.debut2), f2=parseTime(row.fin2);
       let r2 = d2.h&&f2.h ? timeToDecimal(f2.h,f2.m)-timeToDecimal(d2.h,d2.m) : 0;
-      if (r2<0) r2+=24;
+      if(r2<0)r2+=24;
       worked += Math.max(0, r2 - parseFloat(row.pause2Mins||0)/60);
     }
-    const theo = isGrayed ? 0 : (row.theoretical||0);
+    const theo = isAbsent && !isJF ? 0 : (row.theoretical||0);
     const ecart = worked - theo;
     const fmtP = v => v&&v!='0' ? (v==='60'?'1h00':v+'min') : '';
     return [
-      row.date, JOURS_L[d.getDay()], row.code||'',
+      row.date,
+      JOURS_L[d.getDay()],
+      row.code||'',
       row.debut1||'', fmtP(row.pause1Mins), row.fin1||'',
       row.debut2||'', fmtP(row.pause2Mins), row.fin2||'',
-      decimalToHHMM(worked), decimalToHHMM(theo),
+      decimalToHHMM(worked),
+      decimalToHHMM(theo),
       (ecart>=0?'+':'')+decimalToHHMM(Math.abs(ecart)),
       (row.observations||'')
     ];
@@ -3208,21 +3240,25 @@ function exportTimesheetExcel() {
   const bom = '\uFEFF';
   const lines = [
     [title,'','','','','','','','','','','',''].join(sep),
-    '',
+    ['Employé·e','','','','','','','','','','','',''].join(sep),
+    [name,'','','','','','','','','','','',''].join(sep),
+    ['','','','','','','','','','','','',''].join(sep),
+    ['Report mois précédent ('+MONTHS[prevMonth]+' '+prevYear+')','','','','','','','','','','',carryover>=0?'+'+decimalToHHMM(carryover):'-'+decimalToHHMM(Math.abs(carryover)),''].join(sep),
+    ['','','','','','','','','','','','',''].join(sep),
     headers.join(sep),
-    ...rows.map(r => r.map(v => `"${String(v).replace(/"/g,"'")}"`).join(sep))
+    ...rows.map(r => r.map(v => '"'+String(v).replace(/"/g,"'")+'"').join(sep))
   ].join('\n');
 
-  const blob = new Blob([bom + lines], {type:'text/csv;charset=utf-8;'});
+  const blob = new Blob([bom+lines], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `grissac_heures_${currentEmployee.lastName}_${MONTHS[currentMonth]}_${currentYear}.csv`;
+  a.download = 'grissac_heures_'+currentEmployee.lastName+'_'+MONTHS[currentMonth]+'_'+currentYear+'.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('Export CSV téléchargé - ouvrez avec Excel.', 'success');
+  showToast('Export CSV téléchargé.', 'success');
 }
 
 // ─── SYNC PLANNING → FEUILLE D'HEURES EN TEMPS RÉEL ───────────────────────
