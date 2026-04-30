@@ -1663,9 +1663,9 @@ function renderTimesheet(data, key) {
     const d = new Date(row.date + 'T12:00:00');
     const dow = d.getDay(); // 0=sun
     const isWE = dow === 0 || dow === 6;
-    // JF : les jours fériés ne sont PAS grisés - ils comptent comme travaillés légalement
+    // JF : grisé (pas d'horaires à saisir) mais heures théoriques créditées comme travaillées
     const absentCodes = CODES.filter(c=>c.type==='absent').map(c=>c.val);
-    const isGrayed = absentCodes.includes(row.code);
+    const isGrayed = absentCodes.includes(row.code) || row.code === 'JF';
     const isJF = row.code === 'JF';
     const isRH = row.code === 'RH' || row.code === 'RC';
 
@@ -1794,7 +1794,7 @@ function renderTimesheet(data, key) {
       const d1 = parseTime(r.debut1); const f1 = parseTime(r.fin1);
       const p1m = parseFloat(r.pause1Mins||0);
       const t1 = d1.h !== '' && f1.h !== '' ? Math.max(0, timeToDecimal(f1.h,f1.m) - timeToDecimal(d1.h,d1.m) - p1m/60) : 0;
-      const isGrR = CODES.filter(c=>c.type==='absent').map(c=>c.val).includes(r.code);
+      const isGrR = CODES.filter(c=>c.type==='absent').map(c=>c.val).includes(r.code) || r.code === 'JF';
       if (r.code === 'JF') kW += r.theoretical || 0;
       else if (!isGrR) kW += Math.max(0, t1);
       kT += r.theoretical || 0;
