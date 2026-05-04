@@ -587,21 +587,11 @@ input[type=file] { display: none; }
 </style>
 
 <script>
-// ── PWA : Enregistrement du Service Worker ──────────────────────────────────
+// Désactiver tout service worker existant (évite le cache bloquant)
 if ('serviceWorker' in navigator) {
-  const swCode = `
-const CACHE = 'grissac-rh-v1';
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/'])));
-  self.skipWaiting();
-});
-self.addEventListener('activate', e => { self.clients.claim(); });
-self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
-});`;
-  const blob = new Blob([swCode], { type: 'application/javascript' });
-  const swUrl = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl).catch(() => {});
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister());
+  });
 }
 
 // ── Manifest dynamique pour "Ajouter à l'écran d'accueil" ─────────────────
@@ -1280,6 +1270,34 @@ function load(key, def) {
     const parsed = JSON.parse(v);
     return (parsed === null || parsed === undefined) ? def : parsed;
   } catch(e) { console.warn('Load error:', key, e); return def; }
+}
+
+// Resync quand l'utilisateur revient sur la page (mobile : retour en foreground)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    silentSync();
+  }
+});
+
+async function silentSync() {
+  try {
+    const rows = await sbGetAll();
+    if (!rows || rows.length === 0) return;
+    let changed = false;
+    rows.forEach(row => {
+      const current = localStorage.getItem(STORE_KEY + row.key);
+      const incoming = JSON.stringify(row.value);
+      if (current !== incoming) {
+        localStorage.setItem(STORE_KEY + row.key, incoming);
+        changed = true;
+      }
+    });
+    if (changed) {
+      // Rafraîchir l'UI si des données ont changé
+      renderEmployees('');
+      if (currentEmployee) loadTimesheetData();
+    }
+  } catch(e) { /* silencieux */ }
 }
 
 async function syncFromSupabase() {
@@ -3383,6 +3401,28 @@ function testEmailConfig() {
   }).catch(err => {
     showToast('Échec : ' + (err.message || 'Vérifiez votre clé API Brevo.'), 'error');
   });
+}
+
+
+async function manualSync() {
+  const btn = event.target;
+  btn.textContent = '⟳ …';
+  btn.disabled = true;
+  try {
+    const rows = await sbGetAll();
+    if (rows && rows.length > 0) {
+      rows.forEach(row => {
+        localStorage.setItem(STORE_KEY + row.key, JSON.stringify(row.value));
+      });
+    }
+    renderEmployees('');
+    if (currentEmployee) loadTimesheetData();
+    btn.textContent = '✓ Sync';
+    setTimeout(() => { btn.textContent = '⟳ Sync'; btn.disabled = false; }, 2000);
+  } catch(e) {
+    btn.textContent = '✗ Erreur';
+    setTimeout(() => { btn.textContent = '⟳ Sync'; btn.disabled = false; }, 2000);
+  }
 }
 
 </script>
