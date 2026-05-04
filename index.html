@@ -398,6 +398,8 @@ h1, h2, h3, .heading { font-family: 'Cormorant Garamond', serif; font-weight: 40
 .code-select option, .time-h option, .time-m option { background: var(--card); }
 .ecart-pos { color: #6fcf97; font-weight: 600; }
 .ecart-neg { color: #e05050; font-weight: 600; }
+.week-total .ecart-neg { color: #e05050 !important; font-weight: 700 !important; }
+.week-total .ecart-pos { color: #6fcf97 !important; font-weight: 700 !important; }
 .ecart-zero { color: var(--text-muted); }
 
 /* Validation section */
@@ -1838,7 +1840,11 @@ function renderTimesheet(data, key) {
       const wGapClass = wGap > 0 ? 'ecart-pos' : (wGap < 0 ? 'ecart-neg' : 'ecart-zero');
       const wWorkedStr = isForfaitJours ? weekWorked.toFixed(1).replace('.0','')+'j' : decimalToHHMM(weekWorked);
       const wTheoStr   = isForfaitJours ? weekWorked.toFixed(1).replace('.0','')+'j' : decimalToHHMM(weekTheoretical);
-      const wGapStr    = isForfaitJours ? '' : (wGap > 0 ? '+' + decimalToHHMM(wGap) : decimalToHHMM(wGap));
+      const wSign = wGap > 0 ? '+' : (wGap < 0 ? '-' : '');
+      const wGapAbs = Math.abs(wGap);
+      const wGapH = Math.floor(wGapAbs);
+      const wGapM = Math.round((wGapAbs - wGapH) * 60);
+      const wGapStr = isForfaitJours ? '' : (wSign + wGapH + 'h' + String(wGapM).padStart(2,'0'));
       html += `<tr class="week-total">
         <td colspan="${isForfaitJours ? 1 : 2}"></td><td>Total semaine</td>
         ${isForfaitJours ? '' : '<td colspan="6"></td>'}
