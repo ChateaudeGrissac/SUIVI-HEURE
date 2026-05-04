@@ -392,9 +392,9 @@ h1, h2, h3, .heading { font-family: 'Cormorant Garamond', serif; font-weight: 40
 }
 .code-select:focus, .time-h:focus, .time-m:focus, .obs-input:focus { border-color: var(--or-deep); }
 .code-select { width: 148px; font-size:0.75rem; }
-.time-h { width: 46px; min-width: 46px; }
-.time-m { width: 46px; min-width: 46px; }
-.obs-input { width: 100%; min-width: 80px; max-width: 160px; }
+.time-h { width: 40px; min-width: 40px; }
+.time-m { width: 40px; min-width: 40px; }
+.obs-input { width: 130px; }
 .code-select option, .time-h option, .time-m option { background: var(--card); }
 .ecart-pos { color: #6fcf97; font-weight: 600; }
 .ecart-neg { color: #e05050; font-weight: 600; }
@@ -540,7 +540,7 @@ h1, h2, h3, .heading { font-family: 'Cormorant Garamond', serif; font-weight: 40
   .modal { padding: 24px 16px; width: calc(100% - 32px); max-height: 90vh; overflow-y: auto; }
   .settings-tabs { flex-wrap: wrap; }
   .settings-tab { font-size: 0.72rem; padding: 8px 10px; }
-  .code-select { width: 130px; }
+  .code-select { width: 110px; }
   .emp-header-actions { flex-wrap: wrap; }
 }
 @media (max-width: 480px) {
@@ -1633,7 +1633,8 @@ function generateDefaultMonth() {
     const isHoliday = FRENCH_HOLIDAYS_2026.includes(dateStr) || FRENCH_HOLIDAYS_2025.includes(dateStr);
     // Théorique : 1j par jour travaillé pour forfait, heures pour les autres
     const isForfait = isCadreForFait(currentEmployee);
-    const theoretical = isWE ? 0 : (isForfait ? 1 : getBaseHoursForDay(dow, currentEmployee.baseHours));
+    // H. Théorique à 0 par défaut - doit être défini via le planning
+    const theoretical = 0;
 
     let defaultCode = isWE ? 'RH' : (isHoliday ? 'JF' : 'PRE');
 
@@ -1788,7 +1789,7 @@ function renderTimesheet(data, key) {
       </select></span>
     ` : `${hVal||'--'}:${mVal||'--'}`;
     const pauseCell = (pMins, pField, rowIdx) => canEdit ? `
-      <select class="time-h" data-row="${rowIdx}" data-field="${pField}" onchange="updateRow(${rowIdx},'${pField}',this.value)" style="width:62px;">
+      <select class="time-h" data-row="${rowIdx}" data-field="${pField}" onchange="updateRow(${rowIdx},'${pField}',this.value)" style="width:58px;">
         ${PAUSE_OPTS.map(o=>`<option value="${o.v}"${String(pMins)===o.v?' selected':''}>${o.l}</option>`).join('')}
       </select>
     ` : (pMins ? (pMins==='60'?'1h00':pMins+'min') : '--');
