@@ -1838,7 +1838,7 @@ function renderTimesheet(data, key) {
       const wGapClass = wGap > 0 ? 'ecart-pos' : (wGap < 0 ? 'ecart-neg' : 'ecart-zero');
       const wWorkedStr = isForfaitJours ? weekWorked.toFixed(1).replace('.0','')+'j' : decimalToHHMM(weekWorked);
       const wTheoStr   = isForfaitJours ? weekWorked.toFixed(1).replace('.0','')+'j' : decimalToHHMM(weekTheoretical);
-      const wGapStr    = isForfaitJours ? '' : ((wGap>=0?'+':'')+decimalToHHMM(Math.abs(wGap)));
+      const wGapStr    = isForfaitJours ? '' : (wGap > 0 ? '+' + decimalToHHMM(wGap) : decimalToHHMM(wGap));
       html += `<tr class="week-total">
         <td colspan="${isForfaitJours ? 1 : 2}"></td><td>Total semaine</td>
         ${isForfaitJours ? '' : '<td colspan="6"></td>'}
