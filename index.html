@@ -367,7 +367,7 @@ h1, h2, h3, .heading { font-family: 'Cormorant Garamond', serif; font-weight: 40
 }
 .timesheet-table tbody tr { border-bottom: 1px solid var(--border-light); background: #fff; transition: background 0.15s; }
 .timesheet-table tbody tr:hover { background: rgba(15,55,46,0.06); }
-.timesheet-table td { padding: 5px 4px; text-align: center; vertical-align: middle; color: var(--text); white-space: nowrap; font-size:0.78rem; }
+.timesheet-table td { padding: 4px 3px; text-align: center; vertical-align: middle; color: var(--text); font-size: 0.76rem; white-space: nowrap; font-size:0.78rem; }
 .timesheet-table td.date-cell { text-align: left; color: var(--text-muted); font-size: 0.75rem; white-space: nowrap; padding-left: 8px; }
 .timesheet-table td.jour-cell { text-transform: capitalize; font-size: 0.75rem; min-width:56px; }
 .timesheet-table tr.weekend td { background: rgba(15,55,46,0.04); }
@@ -392,9 +392,9 @@ h1, h2, h3, .heading { font-family: 'Cormorant Garamond', serif; font-weight: 40
 }
 .code-select:focus, .time-h:focus, .time-m:focus, .obs-input:focus { border-color: var(--or-deep); }
 .code-select { width: 148px; font-size:0.75rem; }
-.time-h { width: 42px; }
-.time-m { width: 38px; }
-.obs-input { width: 140px; }
+.time-h { width: 46px; min-width: 46px; }
+.time-m { width: 46px; min-width: 46px; }
+.obs-input { width: 100%; min-width: 80px; max-width: 160px; }
 .code-select option, .time-h option, .time-m option { background: var(--card); }
 .ecart-pos { color: #6fcf97; font-weight: 600; }
 .ecart-neg { color: #e05050; font-weight: 600; }
@@ -1788,7 +1788,7 @@ function renderTimesheet(data, key) {
       </select></span>
     ` : `${hVal||'--'}:${mVal||'--'}`;
     const pauseCell = (pMins, pField, rowIdx) => canEdit ? `
-      <select class="time-h" data-row="${rowIdx}" data-field="${pField}" onchange="updateRow(${rowIdx},'${pField}',this.value)" style="width:60px;">
+      <select class="time-h" data-row="${rowIdx}" data-field="${pField}" onchange="updateRow(${rowIdx},'${pField}',this.value)" style="width:62px;">
         ${PAUSE_OPTS.map(o=>`<option value="${o.v}"${String(pMins)===o.v?' selected':''}>${o.l}</option>`).join('')}
       </select>
     ` : (pMins ? (pMins==='60'?'1h00':pMins+'min') : '--');
@@ -1857,14 +1857,24 @@ function renderTimesheet(data, key) {
   const timesheets = load('timesheets', {});
   const allKeys = Object.keys(timesheets).filter(k => k.startsWith(currentEmployee.id + '_')).sort();
   const thisKeyIdx = allKeys.indexOf(key);
+  // Date de remise à zéro du compteur (définie par l'admin)
+  const resetYear = load('counterResetYear_' + currentEmployee.id, null);
+
   let carryover = 0;
   for (let ki = 0; ki < thisKeyIdx; ki++) {
-    const kData = timesheets[allKeys[ki]];
+    const kKey = allKeys[ki]; // format: empId_YYYY_MM
+    const kParts = kKey.split('_');
+    const kYear = parseInt(kParts[kParts.length - 2]);
+    // Ignorer les mois antérieurs à l'année de remise à zéro
+    if (resetYear && kYear < resetYear) continue;
+    const kData = timesheets[kKey];
+    if (!kData) continue;
     let kW = 0, kT = 0;
     kData.forEach(r => {
       const d1 = parseTime(r.debut1); const f1 = parseTime(r.fin1);
       const p1m = parseFloat(r.pause1Mins||0);
-      const t1 = d1.h !== '' && f1.h !== '' ? Math.max(0, timeToDecimal(f1.h,f1.m) - timeToDecimal(d1.h,d1.m) - p1m/60) : 0;
+      let t1 = d1.h !== '' && f1.h !== '' ? timeToDecimal(f1.h,f1.m) - timeToDecimal(d1.h,d1.m) - p1m/60 : 0;
+      if (t1 < 0) t1 += 24;
       const isGrR = CODES.filter(c=>c.type==='absent').map(c=>c.val).includes(r.code) || r.code === 'JF';
       if (r.code === 'JF') kW += r.theoretical || 0;
       else if (!isGrR) kW += Math.max(0, t1);
@@ -1997,6 +2007,21 @@ function nextMonth() {
 // =====================================================
 // VALIDATION
 // =====================================================
+function resetHourCounter() {
+  if (!currentEmployee) return;
+  if (!confirm('Remettre le compteur d\'heures à zéro pour ' + currentEmployee.firstName + ' ' + currentEmployee.lastName + ' à partir de janvier ' + currentYear + ' ?\n\nCette action est irréversible.')) return;
+  store('counterResetYear_' + currentEmployee.id, currentYear);
+  loadTimesheetData();
+  showToast('Compteur remis à zéro au 1er janvier ' + currentYear + '.', 'success');
+}
+
+function promptResetCounter(empId, empName) {
+  const year = new Date().getFullYear();
+  if (!confirm('Remettre le compteur d\'heures à zéro pour ' + empName + ' à partir du 1er janvier ' + year + ' ?\n\nLes mois précédents ne seront plus comptabilisés dans le report.\n\nCette action est irréversible.')) return;
+  store('counterResetYear_' + empId, year);
+  showToast('Compteur de ' + empName + ' remis à zéro à partir de janvier ' + year + '.', 'success');
+}
+
 function updateValidationStatus(key) {
   const v = load('validation_' + key, {});
   const dotE = document.getElementById('dotEmployee');
@@ -2293,6 +2318,7 @@ function renderEmployeesList() {
         <div class="list-item-actions">
           <button class="btn-secondary" onclick="editEmployee('${e.id}')" style="padding:5px 10px; font-size:0.72rem;">Modifier</button>
           <button onclick="toggleArchiveEmployee('${e.id}')" style="padding:5px 10px; font-size:0.72rem; background:${e.archived?'#27ae60':'#b69167'}; color:#fff; border:none; border-radius:3px; cursor:pointer;">${e.archived ? 'Désarchiver' : 'Archiver'}</button>
+          <button onclick="promptResetCounter('${e.id}','${e.firstName} ${e.lastName}')" style="padding:5px 10px; font-size:0.72rem; background:#e74c3c; color:#fff; border:none; border-radius:3px; cursor:pointer;" title="Remettre le compteur d\'heures à zéro en janvier">⟳ Remise à zéro</button>
           <button class="btn-danger" onclick="deleteEmployee('${e.id}')" style="padding:5px 10px; font-size:0.72rem;">Suppr.</button>
         </div>
       </div>
