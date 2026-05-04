@@ -2060,20 +2060,38 @@ function validateEmployee() {
   v.employeeDate = new Date().toISOString();
   store('validation_' + key, v);
 
-  // Email to manager
+  // Email to manager (ou RH si pas de manager pour ce service)
   const managers = load('managers', []);
   const mgr = managers.find(m => m.service === currentEmployee.service);
-  if (mgr) {
+  const cfg = load('emailConfig', {});
+  const destEmail = mgr ? mgr.email : (cfg.rhEmail || '');
+  const destName  = mgr ? mgr.name  : 'Service RH';
+  const MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const moisLabel = MONTHS_FR[currentMonth] + ' ' + currentYear;
+
+  if (destEmail) {
+    const subj = ["Feuille d", "heures a valider ", currentEmployee.firstName, " ", currentEmployee.lastName, " ", moisLabel].join(" ");
+    const empFullName = currentEmployee.firstName + " " + currentEmployee.lastName;
+    const msg = empFullName + " a valide sa feuille d heures pour " + moisLabel + ". Merci de vous connecter a l application pour approuver. Chateau de Grissac RH";
     sendEmail({
-      to_email: mgr.email,
-      to_name: mgr.name,
-      subject: `Feuille d'heures validée - ${currentEmployee.firstName} ${currentEmployee.lastName}`,
-      message: `${currentEmployee.firstName} ${currentEmployee.lastName} a validé sa feuille d'heures pour ${getMonthLabel()}.\n\nConnectez-vous pour approuver ou rejeter.\n\nChâteau de Grissac - RH`
+      to_email: destEmail,
+      to_name: destName,
+      subject: "Feuille d'heures a valider - " + empFullName + " - " + moisLabel,
+      message: empFullName + " a valide sa feuille d'heures pour " + moisLabel + ".\n\nMerci de vous connecter a l'application pour approuver ou rejeter.\n\nChateau de Grissac - RH"
+    }).then(() => {
+      showToast("Email envoye a " + destName + ".", "success");
+    }).catch(err => {
+      showToast("Validation enregistree mais email non envoye.", "error");
     });
+  } else {
+    showToast("Validation enregistree. Aucun manager configure pour ce service.", "error");
   }
 
   showToast('Feuille d\'heures validée et envoyée au chef de service.', 'success');
   updateValidationStatus(key);
+  // Recharger la feuille pour appliquer le verrouillage immédiatement
+  currentData = null;
+  loadTimesheetData();
 }
 
 function showManagerValidation() {
