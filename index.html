@@ -627,6 +627,11 @@ self.addEventListener('fetch', e => {
 </script>
 </head>
 <body>
+<div id="loadingOverlay" style="display:flex;position:fixed;inset:0;background:#0F372E;z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+  <div style="width:48px;height:48px;border:3px solid rgba(182,145,103,0.3);border-top-color:#B69167;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+  <div style="color:#B69167;font-family:'Cormorant Garamond',serif;font-size:1.1rem;letter-spacing:0.1em;">Synchronisation en cours…</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
 <div id="shareBanner" style="display:none; background:linear-gradient(135deg,#0F372E,#1a5244); color:var(--or); padding:12px 20px; font-size:0.78rem; text-align:center; position:relative;">
   <strong>📱 Ajouter à l'écran d'accueil :</strong> dans votre navigateur, appuyez sur <em>Partager</em> puis <em>"Sur l'écran d'accueil"</em> pour accéder à l'app comme une application native.
@@ -1233,10 +1238,41 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
 // DONNÉES & STOCKAGE
 // =====================================================
 const STORE_KEY = 'cdg_';
+const SB_REST = 'https://hexbwkscihsulwiiptbi.supabase.co/rest/v1/app_data';
+const SB_KEY  = 'sb_publishable_-PKYAvzeX-SwJDl2Lm71JA_DI7BbA_w';
+const SB_HDR  = {
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'resolution=merge-duplicates'
+};
+
+async function sbSet(key, value) {
+  try {
+    await fetch(SB_REST, {
+      method: 'POST',
+      headers: SB_HDR,
+      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
+    });
+  } catch(e) { console.warn('Supabase write:', key, e); }
+}
+
+async function sbGetAll() {
+  try {
+    const res = await fetch(SB_REST + '?select=key,value&limit=1000', {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch(e) { console.warn('Supabase read:', e); return []; }
+}
+
 function store(key, val) {
   try { localStorage.setItem(STORE_KEY + key, JSON.stringify(val)); }
   catch(e) { console.warn('Store error:', key, e); }
+  sbSet(key, val);
 }
+
 function load(key, def) {
   try {
     const v = localStorage.getItem(STORE_KEY + key);
@@ -1244,6 +1280,23 @@ function load(key, def) {
     const parsed = JSON.parse(v);
     return (parsed === null || parsed === undefined) ? def : parsed;
   } catch(e) { console.warn('Load error:', key, e); return def; }
+}
+
+async function syncFromSupabase() {
+  const ov = document.getElementById('loadingOverlay');
+  if (ov) ov.style.display = 'flex';
+  try {
+    const rows = await sbGetAll();
+    if (rows && rows.length > 0) {
+      rows.forEach(row => {
+        try { localStorage.setItem(STORE_KEY + row.key, JSON.stringify(row.value)); }
+        catch(e) {}
+      });
+    }
+  } catch(e) { console.warn('Sync error:', e); }
+  if (ov) ov.style.display = 'none';
+  initData();
+  renderEmployees('');
 }
 
 // Init default data
@@ -1269,7 +1322,7 @@ function initData() {
   }
 }
 
-initData();
+syncFromSupabase();
 
 // =====================================================
 // STATE
@@ -2871,9 +2924,10 @@ function renderPlanningPage() {
       const thisWeekH = weekH - h;
       const thisWeekStr = isEmpForfait ? thisWeekH.toFixed(1).replace('.0','')+'j' : decimalToHHMM(thisWeekH);
       const colSpanSub = planningLocked ? (isEmpForfait ? 3 : 4) : 10;
+      const weekId = planningLocked ? '' : `id="weekTotal_${localDateStr(weekStart)}"`;
       rows += `<tr style="background:rgba(15,55,46,0.07);border-top:2px solid var(--border);">
         <td colspan="${colSpanSub}" style="text-align:right;font-size:0.75rem;font-weight:600;color:var(--vert);padding:6px 12px;">${weekLabel}</td>
-        <td style="font-weight:700;color:var(--vert);font-size:0.82rem;">${thisWeekStr}</td>
+        <td ${weekId} style="font-weight:700;color:var(--vert);font-size:0.82rem;">${thisWeekStr}</td>
       </tr>`;
       weekH = h; // reprendre avec le lundi
       weekStart = d;
@@ -2936,9 +2990,10 @@ function renderPlanningPage() {
   const lastWeekStr = isEmpForfait ? weekH.toFixed(1).replace('.0','')+'j' : decimalToHHMM(weekH);
   const totalStr = isEmpForfait ? totalH.toFixed(1).replace('.0','')+'j' : decimalToHHMM(totalH);
   const colSpanLast = planningLocked ? (isEmpForfait ? 3 : 4) : 10;
+  const lastWeekId = planningLocked ? '' : `id="weekTotal_${weekStart ? localDateStr(weekStart) : ''}"`;
   rows += `<tr style="background:rgba(15,55,46,0.07);border-top:2px solid var(--border);">
     <td colspan="${colSpanLast}" style="text-align:right;font-size:0.75rem;font-weight:600;color:var(--vert);padding:6px 12px;">${lastWeekLabel}</td>
-    <td style="font-weight:700;color:var(--vert);font-size:0.82rem;">${lastWeekStr}</td>
+    <td ${lastWeekId} style="font-weight:700;color:var(--vert);font-size:0.82rem;">${lastWeekStr}</td>
   </tr>`;
 
   const readHeader = isEmpForfait
@@ -2973,7 +3028,7 @@ function renderPlanningPage() {
           <tfoot>
             <tr style="background:rgba(15,55,46,0.1);border-top:2px solid var(--vert);">
               <td colspan="${planningLocked ? (isEmpForfait ? 3 : 4) : 10}" style="text-align:right;font-weight:600;font-size:0.82rem;color:var(--vert);padding:8px 12px;">Total mensuel</td>
-              <td style="font-weight:700;color:var(--vert);font-size:0.88rem;">${totalStr}</td>
+              <td id="planningMonthTotal" style="font-weight:700;color:var(--vert);font-size:0.88rem;">${totalStr}</td>
             </tr>
           </tfoot>
         </table>
@@ -3015,16 +3070,55 @@ function onPlanningChange(dateStr) {
   const isAbsent  = ABSENT_CODES.includes(motif);
 
   if (wasAbsent !== isAbsent) {
-    // Sauvegarder d'abord les données DOM de toutes les lignes visibles avant re-render
     flushPlanningDOMToData();
     renderPlanningPage();
     return;
   }
 
-  // Recalcul H/jour + alerte repos
+  // Recalcul H/jour
   const h = isAbsent ? 0 : calcHoursFromDay(planningData[dateStr]);
   const hCell = document.getElementById('ph_' + dateStr);
   if (hCell) hCell.innerHTML = h > 0 ? decimalToHHMM(h) : '-';
+
+  // Recalcul des totaux de semaine depuis planningData + DOM
+  updatePlanningWeekTotals();
+}
+
+function updatePlanningWeekTotals() {
+  // Lire toutes les valeurs DOM dans planningData
+  flushPlanningDOMToData();
+
+  // Recalculer chaque semaine
+  const ABSENT_C = buildCODES().filter(c=>['absent','jf'].includes(c.type)).map(c=>c.val);
+  const weekTotalEls = document.querySelectorAll('[id^="weekTotal_"]');
+  weekTotalEls.forEach(el => {
+    const weekStartStr = el.id.replace('weekTotal_', '');
+    const weekStart = new Date(weekStartStr + 'T12:00:00');
+    let sum = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const ds = localDateStr(d);
+      const day = planningData[ds];
+      if (!day) continue;
+      const isAbsent = ABSENT_C.includes(day.motif);
+      sum += isAbsent ? 0 : calcHoursFromDay(day);
+    }
+    el.textContent = sum > 0 ? decimalToHHMM(sum) : '0h00';
+  });
+
+  // Recalcul total mensuel
+  const totalEl = document.getElementById('planningMonthTotal');
+  if (totalEl) {
+    let monthTotal = 0;
+    Object.keys(planningData).forEach(ds => {
+      const day = planningData[ds];
+      if (!day) return;
+      if (ABSENT_C.includes(day.motif)) return;
+      monthTotal += calcHoursFromDay(day);
+    });
+    totalEl.textContent = decimalToHHMM(monthTotal);
+  }
 }
 function unlockPlanning() {
   // Demander le mot de passe manager ou admin
