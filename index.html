@@ -732,7 +732,7 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
       </div>
       <div class="summary-card">
         <div class="val" id="sumOvertime">0h00</div>
-        <div class="lbl">Heures sup.</div>
+        <div class="lbl">Solde total</div>
       </div>
     </div>
 
@@ -1876,7 +1876,7 @@ function renderTimesheet(data, key) {
       const kYear = parseInt(kParts[kParts.length - 2]);
       // resetYear : ignorer les mois strictement avant janvier de l'année de reset
       const kMonth = parseInt(kParts[kParts.length - 1]);
-      if (resetYear && (kYear < resetYear)) return;
+      if (resetYear && resetYear > 0 && (kYear < resetYear)) return;
       const kData = timesheets[kKey];
       if (!kData || kData.length === 0) return;
       let kW = 0, kT = 0;
@@ -1904,7 +1904,7 @@ function renderTimesheet(data, key) {
           carryover += kW - kT;
     });
 
-  const overtime = Math.max(0, totalGap);
+  const overtime = carryover + totalGap; // report cumulé + écart période (peut être négatif)
   if (isForfaitJours) {
     const ABSENT_C = CODES.filter(c=>['absent','jf'].includes(c.type)).map(c=>c.val);
     const jPresence = data.filter(r=>!ABSENT_C.includes(r.code)).reduce((s,r)=>s+parseFloat(r.presenceJours||1),0);
@@ -1923,7 +1923,7 @@ function renderTimesheet(data, key) {
     updateSummary('sumTheoretical', totalTheoretical, null);
     updateSummary('sumGap', totalGap, 'gap');
     updateSummary('sumCarryover', carryover, 'gap');
-    updateSummary('sumOvertime', overtime, 'pos');
+    updateSummary('sumOvertime', overtime, 'gap');
   }
 }
 
@@ -2043,8 +2043,8 @@ function cancelResetCounter(empId, empName) {
     return;
   }
   if (!confirm('Annuler la remise à zéro du compteur de ' + empName + ' (actuellement fixée à ' + currentReset + ') ?\n\nLe report cumulé reprendra depuis le début de l\'historique.')) return;
-  store('counterResetYear_' + empId, null);
-  showToast('Remise à zéro annulée pour ' + empName + '.', 'success');
+  store('counterResetYear_' + empId, 0); // 0 = pas de reset
+  showToast('Remise à zéro annulée pour ' + empName + '. Rechargez la page.', 'success');
 }
 
 function promptResetCounter(empId, empName) {
