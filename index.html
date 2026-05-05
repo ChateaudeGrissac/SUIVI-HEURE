@@ -750,17 +750,10 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
       <div class="absence-row">
         <div class="form-group">
           <label class="form-label">Motif d'absence</label>
-          <select class="form-control" id="absenceMotif">
+                    <select class="form-control" id="absenceMotif">
             <option value="">Sélectionner un motif</option>
-            <option value="SS">Maladie (SS)</option>
-            <option value="AM">Accident du travail (AM)</option>
-            <option value="RTT">RTT</option>
-            <option value="RH">Récupération (RH)</option>
-            <option value="evenement_familial">Evénement familial</option>
-            <option value="deces">Décès dans la famille</option>
-            <option value="maternite">Congé maternité/paternité</option>
-            <option value="formation">Formation</option>
-            <option value="autre">Autre</option>
+            <option value="AM">Arrêt maladie</option>
+            <option value="ACC">Accident du travail</option>
           </select>
         </div>
         <div class="form-group">
@@ -778,7 +771,7 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
           <span id="absenceFileName" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px;"></span>
         </div>
         <div class="form-group" style="display:flex; align-items:flex-end;">
-          <button class="btn-primary" style="width:auto; padding: 11px 24px;" onclick="submitAbsence()">Envoyer au service RH</button>
+          <button class="btn-primary" style="width:auto; padding: 11px 24px;" onclick="submitAbsence()">Envoyer au chef de service</button>
         </div>
       </div>
     </div>
