@@ -1869,14 +1869,14 @@ function renderTimesheet(data, key) {
   // La clé courante est au format empId_YYYY_MM
   let carryover = 0;
   const empPrefix = currentEmployee.id + '_';
-  Object.keys(timesheets)
-    .filter(k => k.startsWith(empPrefix))
-    .sort()
-    .forEach(kKey => {
-      if (kKey >= key) return; // ignorer le mois courant et les suivants
-      const kParts = kKey.split('_');
+  const allMonthKeys = Object.keys(timesheets).filter(k => k.startsWith(empPrefix)).sort();
+  allMonthKeys.forEach(kKey => {
+      if (kKey >= key) { console.log('[REPORT] skip (>=)', kKey); return; } // ignorer le mois courant et les suivants
+          const kParts = kKey.split('_');
       const kYear = parseInt(kParts[kParts.length - 2]);
-      if (resetYear && kYear < resetYear) return;
+      // resetYear : ignorer les mois strictement avant janvier de l'année de reset
+      const kMonth = parseInt(kParts[kParts.length - 1]);
+      if (resetYear && (kYear < resetYear)) return;
       const kData = timesheets[kKey];
       if (!kData || kData.length === 0) return;
       let kW = 0, kT = 0;
@@ -1901,7 +1901,7 @@ function renderTimesheet(data, key) {
           kT += 0; // absent = 0 théorique
         }
       });
-      carryover += kW - kT;
+          carryover += kW - kT;
     });
 
   const overtime = Math.max(0, totalGap);
@@ -2034,6 +2034,17 @@ function resetHourCounter() {
   store('counterResetYear_' + currentEmployee.id, currentYear);
   loadTimesheetData();
   showToast('Compteur remis à zéro au 1er janvier ' + currentYear + '.', 'success');
+}
+
+function cancelResetCounter(empId, empName) {
+  const currentReset = load('counterResetYear_' + empId, null);
+  if (!currentReset) {
+    showToast('Aucune remise à zéro active pour ' + empName + '.', 'info');
+    return;
+  }
+  if (!confirm('Annuler la remise à zéro du compteur de ' + empName + ' (actuellement fixée à ' + currentReset + ') ?\n\nLe report cumulé reprendra depuis le début de l\'historique.')) return;
+  store('counterResetYear_' + empId, null);
+  showToast('Remise à zéro annulée pour ' + empName + '.', 'success');
 }
 
 function promptResetCounter(empId, empName) {
@@ -2357,7 +2368,8 @@ function renderEmployeesList() {
         <div class="list-item-actions">
           <button class="btn-secondary" onclick="editEmployee('${e.id}')" style="padding:5px 10px; font-size:0.72rem;">Modifier</button>
           <button onclick="toggleArchiveEmployee('${e.id}')" style="padding:5px 10px; font-size:0.72rem; background:${e.archived?'#27ae60':'#b69167'}; color:#fff; border:none; border-radius:3px; cursor:pointer;">${e.archived ? 'Désarchiver' : 'Archiver'}</button>
-          <button onclick="promptResetCounter('${e.id}','${e.firstName} ${e.lastName}')" style="padding:5px 10px; font-size:0.72rem; background:#e74c3c; color:#fff; border:none; border-radius:3px; cursor:pointer;" title="Remettre le compteur d\'heures à zéro en janvier">⟳ Remise à zéro</button>
+          <button onclick="promptResetCounter('${e.id}','${e.firstName} ${e.lastName}')" style="padding:5px 10px; font-size:0.72rem; background:#e74c3c; color:#fff; border:none; border-radius:3px; cursor:pointer;" title="Remettre le compteur d\'heures à zéro">⟳ Remise à zéro</button>
+          <button onclick="cancelResetCounter('${e.id}','${e.firstName} ${e.lastName}')" style="padding:5px 10px; font-size:0.72rem; background:#7f8c8d; color:#fff; border:none; border-radius:3px; cursor:pointer;" title="Annuler la remise à zéro">✗ Annuler reset</button>
           <button class="btn-danger" onclick="deleteEmployee('${e.id}')" style="padding:5px 10px; font-size:0.72rem;">Suppr.</button>
         </div>
       </div>
