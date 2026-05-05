@@ -1862,33 +1862,47 @@ function renderTimesheet(data, key) {
   // Summary
   const totalGap = totalWorked - totalTheoretical;
   const timesheets = load('timesheets', {});
-  const allKeys = Object.keys(timesheets).filter(k => k.startsWith(currentEmployee.id + '_')).sort();
-  const thisKeyIdx = allKeys.indexOf(key);
-  // Date de remise à zéro du compteur (définie par l'admin)
+  // Date de remise à zéro du compteur
   const resetYear = load('counterResetYear_' + currentEmployee.id, null);
 
+  // Calculer le report en comparant la clé courante, sans avoir besoin qu'elle soit dans timesheets
+  // La clé courante est au format empId_YYYY_MM
   let carryover = 0;
-  for (let ki = 0; ki < thisKeyIdx; ki++) {
-    const kKey = allKeys[ki]; // format: empId_YYYY_MM
-    const kParts = kKey.split('_');
-    const kYear = parseInt(kParts[kParts.length - 2]);
-    // Ignorer les mois antérieurs à l'année de remise à zéro
-    if (resetYear && kYear < resetYear) continue;
-    const kData = timesheets[kKey];
-    if (!kData) continue;
-    let kW = 0, kT = 0;
-    kData.forEach(r => {
-      const d1 = parseTime(r.debut1); const f1 = parseTime(r.fin1);
-      const p1m = parseFloat(r.pause1Mins||0);
-      let t1 = d1.h !== '' && f1.h !== '' ? timeToDecimal(f1.h,f1.m) - timeToDecimal(d1.h,d1.m) - p1m/60 : 0;
-      if (t1 < 0) t1 += 24;
-      const isGrR = CODES.filter(c=>c.type==='absent').map(c=>c.val).includes(r.code) || r.code === 'JF';
-      if (r.code === 'JF') kW += r.theoretical || 0;
-      else if (!isGrR) kW += Math.max(0, t1);
-      kT += r.theoretical || 0;
+  const empPrefix = currentEmployee.id + '_';
+  Object.keys(timesheets)
+    .filter(k => k.startsWith(empPrefix))
+    .sort()
+    .forEach(kKey => {
+      if (kKey >= key) return; // ignorer le mois courant et les suivants
+      const kParts = kKey.split('_');
+      const kYear = parseInt(kParts[kParts.length - 2]);
+      if (resetYear && kYear < resetYear) return;
+      const kData = timesheets[kKey];
+      if (!kData || kData.length === 0) return;
+      let kW = 0, kT = 0;
+      const absentC = CODES.filter(c=>c.type==='absent').map(c=>c.val);
+      kData.forEach(r => {
+        const isGrR = absentC.includes(r.code) || r.code === 'JF';
+        if (r.code === 'JF') {
+          kW += r.theoretical || 0;
+          kT += r.theoretical || 0;
+        } else if (!isGrR) {
+          // Plage 1
+          const d1 = parseTime(r.debut1), f1 = parseTime(r.fin1);
+          let t1 = d1.h !== '' && f1.h !== '' ? timeToDecimal(f1.h,f1.m) - timeToDecimal(d1.h,d1.m) - parseFloat(r.pause1Mins||0)/60 : 0;
+          if (t1 < 0) t1 += 24;
+          // Plage 2
+          const d2 = parseTime(r.debut2), f2 = parseTime(r.fin2);
+          let t2 = d2.h !== '' && f2.h !== '' ? timeToDecimal(f2.h,f2.m) - timeToDecimal(d2.h,d2.m) - parseFloat(r.pause2Mins||0)/60 : 0;
+          if (t2 < 0) t2 += 24;
+          kW += Math.max(0, t1) + Math.max(0, t2);
+          kT += r.theoretical || 0;
+        } else {
+          kT += 0; // absent = 0 théorique
+        }
+      });
+      carryover += kW - kT;
     });
-    carryover += kW - kT;
-  }
 
   const overtime = Math.max(0, totalGap);
   if (isForfaitJours) {
