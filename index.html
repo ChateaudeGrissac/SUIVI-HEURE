@@ -282,6 +282,8 @@ h1, h2, h3, .heading { font-family: 'Cormorant Garamond', serif; font-weight: 40
 
 /* ---- EMPLOYEE DETAIL PAGE ---- */
 #page-employee { background: var(--bg); }
+.timesheet-wrapper { position: relative; }
+.timesheet-wrapper table thead th { position: sticky; top: 0; z-index: 10; }
 .emp-header {
   background: linear-gradient(135deg, var(--vert) 0%, #1a4a3a 100%);
   padding: 28px 40px;
@@ -350,10 +352,11 @@ h1, h2, h3, .heading { font-family: 'Cormorant Garamond', serif; font-weight: 40
 .summary-card .lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
 
 /* Timesheet table */
-.timesheet-wrapper { overflow-x: auto; border-radius: 6px; border: 1px solid var(--border); max-width: 100%; }
+.timesheet-wrapper { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 300px); border-radius: 6px; border: 1px solid var(--border); max-width: 100%; }
 .timesheet-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
-.timesheet-table thead { background: var(--vert); }
-.timesheet-table thead th {
+.timesheet-table thead { background: var(--vert); position: sticky; top: 0; z-index: 10; }
+.timesheet-table thead th { position: sticky; top: 0; z-index: 10;
+  background: var(--vert) !important;
   padding: 8px 5px;
   text-align: center;
   color: var(--or);
@@ -952,11 +955,11 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
         <h3>Mot de passe administrateur</h3>
         <div class="form-group">
           <label class="form-label">Nouveau mot de passe admin</label>
-          <input type="password" class="form-control" id="newAdminPwd" placeholder="Nouveau mot de passe">
+          <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="newAdminPwd" placeholder="Nouveau mot de passe" style="padding-right:36px;"><button type="button" onclick="togglePwd('newAdminPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
         </div>
         <div class="form-group">
           <label class="form-label">Confirmer</label>
-          <input type="password" class="form-control" id="confirmAdminPwd" placeholder="Confirmer">
+          <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="confirmAdminPwd" placeholder="Confirmer" style="padding-right:36px;"><button type="button" onclick="togglePwd('confirmAdminPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
         </div>
         <button class="btn-primary" onclick="changeAdminPassword()">Modifier</button>
       </div>
@@ -965,11 +968,11 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
         <p style="color:var(--text-muted); font-size:0.83rem; margin-bottom:16px;">Ce mot de passe est utilisé pour les validations Chef·fe de service et RH.</p>
         <div class="form-group">
           <label class="form-label">Nouveau mot de passe</label>
-          <input type="password" class="form-control" id="newMgrPwd" placeholder="Nouveau mot de passe">
+          <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="newMgrPwd" placeholder="Nouveau mot de passe" style="padding-right:36px;"><button type="button" onclick="togglePwd('newMgrPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
         </div>
         <div class="form-group">
           <label class="form-label">Confirmer</label>
-          <input type="password" class="form-control" id="confirmMgrPwd" placeholder="Confirmer">
+          <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="confirmMgrPwd" placeholder="Confirmer" style="padding-right:36px;"><button type="button" onclick="togglePwd('confirmMgrPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
         </div>
         <button class="btn-primary" onclick="changeManagerPassword()">Modifier</button>
       </div>
@@ -1071,7 +1074,7 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
     <p id="loginSubtitle">Entrez le mot de passe employé, administrateur ou chef·fe de service</p>
     <div class="form-group">
       <label class="form-label">Mot de passe</label>
-      <input type="password" class="form-control" id="loginPassword" placeholder="Votre mot de passe" onkeydown="if(event.key==='Enter') doLogin()">
+      <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="loginPassword" placeholder="Votre mot de passe" onkeydown="if(event.key==='Enter') doLogin()" style="padding-right:36px;"><button type="button" onclick="togglePwd('loginPassword',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
     </div>
     <div id="loginError" class="msg-error"></div>
     <button class="btn-primary" onclick="doLogin()">Accéder</button>
@@ -1087,11 +1090,11 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
     <p>Pour votre sécurité, veuillez définir un nouveau mot de passe personnel lors de cette première connexion.</p>
     <div class="form-group">
       <label class="form-label">Nouveau mot de passe</label>
-      <input type="password" class="form-control" id="firstNewPwd" placeholder="Choisissez un mot de passe">
+      <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="firstNewPwd" placeholder="Choisissez un mot de passe" style="padding-right:36px;"><button type="button" onclick="togglePwd('firstNewPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
     </div>
     <div class="form-group">
       <label class="form-label">Confirmer</label>
-      <input type="password" class="form-control" id="firstConfirmPwd" placeholder="Confirmer le mot de passe">
+      <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="firstConfirmPwd" placeholder="Confirmer le mot de passe" style="padding-right:36px;"><button type="button" onclick="togglePwd('firstConfirmPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
     </div>
     <div id="firstLoginError" class="msg-error"></div>
     <button class="btn-primary" onclick="doFirstLoginChange()">Confirmer et accéder</button>
@@ -1120,7 +1123,7 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
     <p>Entrez le mot de passe administrateur pour accéder au paramétrage.</p>
     <div class="form-group">
       <label class="form-label">Mot de passe administrateur</label>
-      <input type="password" class="form-control" id="settingsPwd" placeholder="Mot de passe" onkeydown="if(event.key==='Enter') doSettingsLogin()">
+      <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="settingsPwd" placeholder="Mot de passe" onkeydown="if(event.key==='Enter') doSettingsLogin()" style="padding-right:36px;"><button type="button" onclick="togglePwd('settingsPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
     </div>
     <div id="settingsPwdError" class="msg-error"></div>
     <button class="btn-primary" onclick="doSettingsLogin()">Accéder</button>
@@ -1136,7 +1139,7 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
     <div class="form-group">
       <label class="form-label">Mot de passe</label>
       <div style="display:flex; gap:8px; align-items:center;">
-        <input type="password" class="form-control" id="mgrValidationPwd" placeholder="Mot de passe" style="flex:1;">
+        <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="mgrValidationPwd" placeholder="Mot de passe" style="flex:1;" style="padding-right:36px;"><button type="button" onclick="togglePwd('mgrValidationPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
         <button type="button" onclick="togglePwd('mgrValidationPwd',this)" style="background:transparent;border:1px solid var(--or-deep);color:var(--or-deep);padding:8px 10px;border-radius:3px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">Voir</button>
       </div>
     </div>
@@ -1161,7 +1164,7 @@ if (window.matchMedia('(max-width: 768px)').matches && !window.matchMedia('(disp
     <div class="form-group">
       <label class="form-label">Mot de passe</label>
       <div style="display:flex; gap:8px; align-items:center;">
-        <input type="password" class="form-control" id="rhValidationPwd" placeholder="Mot de passe" style="flex:1;">
+        <div style="position:relative;display:flex;align-items:center;"><input type="password" class="form-control" id="rhValidationPwd" placeholder="Mot de passe" style="flex:1;" style="padding-right:36px;"><button type="button" onclick="togglePwd('rhValidationPwd',this)" tabindex="-1" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0;">👁</button></div>
         <button type="button" onclick="togglePwd('rhValidationPwd',this)" style="background:transparent;border:1px solid var(--or-deep);color:var(--or-deep);padding:8px 10px;border-radius:3px;cursor:pointer;font-size:0.75rem;white-space:nowrap;">Voir</button>
       </div>
     </div>
